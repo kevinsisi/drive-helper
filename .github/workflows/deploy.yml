@@ -12,6 +12,7 @@ on:
 env:
   DOCKERHUB_USERNAME: kevin950805
   DEPLOY_PATH: /home/kevin/DockerCompose/drive-helper
+  DEFAULT_APP_URL: https://drive.sisihome.org
 
 jobs:
   deploy:
@@ -45,7 +46,7 @@ jobs:
         env:
           DEPLOY_SERVER_IP: ${{ secrets.DEPLOY_SERVER_IP }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          APP_URL: ${{ secrets.APP_URL }}
+          APP_URL: ${{ secrets.APP_URL || env.DEFAULT_APP_URL }}
           FRONTEND_PORT: ${{ secrets.FRONTEND_PORT }}
           MAX_FILE_SIZE_MB: ${{ secrets.MAX_FILE_SIZE_MB }}
         run: |
@@ -69,9 +70,11 @@ jobs:
           "
 
       - name: Health check
+        env:
+          APP_URL: ${{ secrets.APP_URL || env.DEFAULT_APP_URL }}
         run: |
           sleep 10
-          curl -f "${{ secrets.APP_URL }}/api/health"
+          curl -f "${APP_URL}/api/health"
 
       - name: Deployment summary
         if: always()
