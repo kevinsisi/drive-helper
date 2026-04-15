@@ -27,11 +27,11 @@
 - 純後端渲染頁面：更簡單，但上傳進度與表單狀態體驗較差。
 - 前後端 monorepo + TypeScript：可行，但對目前空專案來說初始化成本較高。
 
-### 2. 使用 Google Service Account JSON 作為首版整合方式
-為了避免完整 OAuth redirect flow、refresh token 管理與使用者登入流程，首版採用 service account 憑證。使用者只需要把 service account JSON 與目標資料夾 ID 設定到系統，並在 Google Drive 端把該資料夾分享給 service account，即可上傳。
+### 2. 使用 Google OAuth Web Client 作為首版整合方式
+實作過程中驗證到 service account 不適合這個需求：它無法直接處理使用者自己的「我的雲端硬碟」目標資料夾，也會遇到 storage quota 與 folder visibility 限制。首版因此改為 OAuth 2.0 Web Client 流程，由使用者在瀏覽器完成一次授權，後端保存 refresh token，之後再以該使用者的 Google Drive 權限上傳圖片。
 
 替代方案：
-- OAuth 2.0 client flow：較適合終端使用者登入自己的帳號，但需要 callback、token refresh 與更多 UI 流程。
+- Service account：不適合個人 Drive 寫入目標，也無法穩定驗證既有資料夾存取。
 - API key：無法完成 Drive 檔案上傳，不符合需求。
 
 ### 3. 設定檔以本機 JSON 檔持久化，敏感內容由後端保存
@@ -49,10 +49,11 @@
 
 ## Risks / Trade-offs
 
-- [Service account 設定較技術向] → 在 UI 明確說明需分享資料夾給 service account 電子郵件。
+- [OAuth 設定需要 Google Cloud 與 redirect URI] → 在 memory 記錄正式網域 `drive.sisihome.org` 與 callback `https://drive.sisihome.org/oauth/callback`。
 - [設定檔包含敏感憑證] → 設定檔只保存在後端資料夾、加入 `.gitignore`、API 不回傳完整 JSON。
 - [大檔或多檔上傳可能耗時] → 先限制圖片檔與單檔大小，並提供逐檔結果與錯誤訊息。
 - [Google API 配額或權限問題] → 提供連線測試 API，先驗證資料夾是否可寫入再進行正式上傳。
+- [使用者輸入的既有 folder ID 可能不可見] → 已驗證可由授權 token 建立新資料夾並切換為系統預設上傳目標。
 
 ## Migration Plan
 
@@ -67,5 +68,5 @@
 ## Open Questions
 
 - 首版是否需要在 UI 顯示已上傳檔案清單，目前先不納入。
-- 是否要支援建立新資料夾，目前先只支援輸入既有 Google Drive folder ID。
+- 是否要在 UI 內建「建立資料夾」按鈕；目前已有實作驗證可建立資料夾，但尚未暴露成 UI 操作。
 - 未來若要接 `digital-photo-frame`，可再增加同步或匯入流程，但這次先聚焦上傳 helper 本身。
