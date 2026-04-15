@@ -61,8 +61,9 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_SERVER_IP}" "
             set -e
-            docker rm -f drive-helper-frontend drive-helper-backend 2>/dev/null || true
             cd '${DEPLOY_PATH}'
+            docker compose down --remove-orphans || true
+            docker rm -f drive-helper-frontend drive-helper-backend 2>/dev/null || true
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -af --filter 'until=24h' || true
