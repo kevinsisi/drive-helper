@@ -6,6 +6,10 @@ import { config } from './config.js';
 import { readSettings, saveSettings, saveTokens, toSafeSettings } from './settingsStore.js';
 import { buildAuthorizationUrl, exchangeCodeForTokens, testDriveAccess, uploadImageToDrive } from './driveService.js';
 
+function normalizeFilename(name) {
+  return Buffer.from(name, 'latin1').toString('utf8');
+}
+
 const app = express();
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -121,9 +125,11 @@ app.post('/api/upload', upload.array('photos', 20), async (req, res, next) => {
     const results = [];
 
     for (const file of files) {
+      const normalizedName = normalizeFilename(file.originalname);
+
       if (!allowedMimeTypes.has(file.mimetype)) {
         results.push({
-          name: file.originalname,
+          name: normalizedName,
           success: false,
           error: '不支援的圖片格式',
         });
@@ -133,14 +139,14 @@ app.post('/api/upload', upload.array('photos', 20), async (req, res, next) => {
       try {
         const uploaded = await uploadImageToDrive(settings, file);
         results.push({
-          name: file.originalname,
+          name: normalizedName,
           success: true,
           driveFileId: uploaded.id,
           webViewLink: uploaded.webViewLink,
         });
       } catch (error) {
         results.push({
-          name: file.originalname,
+          name: normalizedName,
           success: false,
           error: error.message || '上傳失敗',
         });

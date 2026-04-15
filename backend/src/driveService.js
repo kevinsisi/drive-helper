@@ -4,6 +4,10 @@ import { config } from './config.js';
 
 const DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive'];
 
+function normalizeFilename(name) {
+  return Buffer.from(name, 'latin1').toString('utf8');
+}
+
 function createOauthClient(oauthClientConfig) {
   return new google.auth.OAuth2(
     oauthClientConfig.client_id,
@@ -65,9 +69,10 @@ export async function testDriveAccess(settings) {
 
 export async function uploadImageToDrive(settings, file) {
   const drive = google.drive({ version: 'v3', auth: getAuthorizedClient(settings) });
+  const normalizedName = normalizeFilename(file.originalname);
   const response = await drive.files.create({
     requestBody: {
-      name: file.originalname,
+      name: normalizedName,
       parents: [settings.folderId],
     },
     media: {
