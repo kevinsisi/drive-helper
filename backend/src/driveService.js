@@ -2,7 +2,7 @@ import { Readable } from 'node:stream';
 import { google } from 'googleapis';
 import { config } from './config.js';
 
-const DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+const DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive'];
 
 function createOauthClient(oauthClientConfig) {
   return new google.auth.OAuth2(
