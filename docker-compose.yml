@@ -1,0 +1,36 @@
+services:
+  frontend:
+    container_name: drive-helper-frontend
+    image: kevin950805/drive-helper-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    ports:
+      - "${FRONTEND_PORT:-9321}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    container_name: drive-helper-backend
+    image: kevin950805/drive-helper-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    environment:
+      PORT: 3211
+      FRONTEND_URL: ${APP_URL:-http://localhost:9321}
+      APP_URL: ${APP_URL:-http://localhost:9321}
+      SETTINGS_FILE: /app/data/settings.json
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-20}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+networks:
+  default:
+    name: drive-helper-network

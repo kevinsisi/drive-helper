@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local app data
+data/
+storage/
+uploads/
+tmp/
+
+# Google auth and credential files
+credentials.json
+credential.json
+service-account.json
+service-account-*.json
+oauth-client.json
+oauth-client-*.json
+client_secret*.json
+token.json
+token-*.json
+google-token*.json
+google-oauth*.json
+auth.json
+secrets.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

@@ -1,0 +1,85 @@
+name: Deploy to Raspberry Pi
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOCKERHUB_USERNAME: kevin950805
+  DEPLOY_PATH: /home/kevin/DockerCompose/drive-helper
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-actions
+
+      - name: Test Tailscale connection
+        run: |
+          tailscale status
+          ping -c 3 ${{ secrets.DEPLOY_SERVER_IP }}
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DEPLOY_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Sync compose and env files
+        env:
+          DEPLOY_SERVER_IP: ${{ secrets.DEPLOY_SERVER_IP }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_URL: ${{ secrets.APP_URL }}
+          FRONTEND_PORT: ${{ secrets.FRONTEND_PORT }}
+          MAX_FILE_SIZE_MB: ${{ secrets.MAX_FILE_SIZE_MB }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_SERVER_IP}" "mkdir -p '${DEPLOY_PATH}'"
+          scp -i ~/.ssh/deploy_key docker-compose.yml "${DEPLOY_USER}@${DEPLOY_SERVER_IP}:${DEPLOY_PATH}/docker-compose.yml"
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_SERVER_IP}" "printf 'APP_URL=%s\nFRONTEND_PORT=%s\nMAX_FILE_SIZE_MB=%s\n' '${APP_URL}' '${FRONTEND_PORT:-9321}' '${MAX_FILE_SIZE_MB:-20}' > '${DEPLOY_PATH}/.env'"
+
+      - name: Deploy via SSH
+        env:
+          DEPLOY_SERVER_IP: ${{ secrets.DEPLOY_SERVER_IP }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_SERVER_IP}" "
+            set -e
+            docker rm -f drive-helper-frontend drive-helper-backend 2>/dev/null || true
+            cd '${DEPLOY_PATH}'
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -af --filter 'until=24h' || true
+            docker compose ps
+          "
+
+      - name: Health check
+        run: |
+          sleep 10
+          curl -f "${{ secrets.APP_URL }}/api/health"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Server: \`${{ secrets.DEPLOY_SERVER_IP }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Path: \`${{ env.DEPLOY_PATH }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend image: \`${{ env.DOCKERHUB_USERNAME }}/drive-helper-frontend:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend image: \`${{ env.DOCKERHUB_USERNAME }}/drive-helper-backend:latest\`" >> $GITHUB_STEP_SUMMARY
